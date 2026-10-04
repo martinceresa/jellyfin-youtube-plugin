@@ -9,14 +9,14 @@ The plugin syncs metadata and artwork from YouTube into your library and streams
 Add the plugin repository in Jellyfin under **Dashboard → Plugins → Repositories → +** :
 
 ```
-https://raw.githubusercontent.com/kingschnulli/jellyfin-youtube-plugin/main/manifest.json
+https://raw.githubusercontent.com/martinceresa/jellyfin-youtube-plugin/main/manifest.json
 ```
 
 Then install **YouTubeSync** from the plugin catalogue and restart Jellyfin.
 
 ### Requirements
 
-- **Jellyfin 12.1** or later (the plugin runs on .NET 10). Servers still on Jellyfin 10.11 are offered the last 0.1.x release from the same plugin repository.
+- **Jellyfin 12.1** or later (the plugin runs on .NET 10). Jellyfin 10.11 is not supported by this repository.
 - **yt-dlp** available on PATH (or configured in plugin settings)
 - **ffmpeg** (only needed for Enhanced playback mode)
 
