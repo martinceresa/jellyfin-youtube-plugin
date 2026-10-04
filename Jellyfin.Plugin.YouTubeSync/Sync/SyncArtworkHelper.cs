@@ -12,10 +12,19 @@ namespace Jellyfin.Plugin.YouTubeSync.Sync;
 internal static class SyncArtworkHelper
 {
     private static readonly TimeSpan ArtworkDownloadTimeout = TimeSpan.FromSeconds(20);
-    private static readonly string[] ArtworkExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
-    private static readonly HttpClient HttpClient = new();
+    private static readonly string[] ArtworkExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 
+    /// <summary>
+    /// Downloads <paramref name="imageUrl"/> once and stores it under every base name that is still missing in <paramref name="directory"/>.
+    /// </summary>
+    /// <param name="httpClient">An <see cref="HttpClient"/> obtained from Jellyfin's <see cref="IHttpClientFactory"/>.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="imageUrl">The artwork URL. YouTube thumbnail URLs get automatic lower-resolution fallbacks.</param>
+    /// <param name="directory">The target directory.</param>
+    /// <param name="baseNames">File base names (without extension) to write, e.g. <c>poster</c>.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task DownloadArtworkAsync(
+        HttpClient httpClient,
         ILogger logger,
         string imageUrl,
         string directory,
@@ -38,7 +47,7 @@ internal static class SyncArtworkHelper
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(ArtworkDownloadTimeout);
 
-            var downloadResult = await TryDownloadArtworkBytesAsync(imageUrl, timeoutCts.Token).ConfigureAwait(false);
+            var downloadResult = await TryDownloadArtworkBytesAsync(httpClient, imageUrl, timeoutCts.Token).ConfigureAwait(false);
             if (downloadResult is null)
             {
                 logger.LogWarning("Failed to download artwork from {ImageUrl}", imageUrl);
@@ -116,13 +125,20 @@ internal static class SyncArtworkHelper
         return ".jpg";
     }
 
-    private static async Task<(string ResolvedUrl, byte[] Bytes)?> TryDownloadArtworkBytesAsync(string imageUrl, CancellationToken cancellationToken)
+    private static async Task<(string ResolvedUrl, byte[] Bytes)?> TryDownloadArtworkBytesAsync(
+        HttpClient httpClient,
+        string imageUrl,
+        CancellationToken cancellationToken)
     {
         foreach (var candidateUrl in EnumerateArtworkDownloadUrls(imageUrl))
         {
+            // .NET 10's HttpClient no longer checks the token before dispatching, so check it here
+            // to avoid starting another fallback request after the sync has been cancelled.
+            cancellationToken.ThrowIfCancellationRequested();
+
             try
             {
-                var bytes = await HttpClient.GetByteArrayAsync(candidateUrl, cancellationToken).ConfigureAwait(false);
+                var bytes = await httpClient.GetByteArrayAsync(candidateUrl, cancellationToken).ConfigureAwait(false);
                 return (candidateUrl, bytes);
             }
             catch (HttpRequestException)

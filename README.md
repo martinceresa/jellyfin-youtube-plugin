@@ -16,7 +16,7 @@ Then install **YouTubeSync** from the plugin catalogue and restart Jellyfin.
 
 ### Requirements
 
-- **Jellyfin 10.11.6** or compatible
+- **Jellyfin 12.1** or later (the plugin runs on .NET 10). Servers still on Jellyfin 10.11 are offered the last 0.1.x release from the same plugin repository.
 - **yt-dlp** available on PATH (or configured in plugin settings)
 - **ffmpeg** (only needed for Enhanced playback mode)
 
@@ -46,6 +46,8 @@ You can switch between modes in the plugin settings at any time.
 - Age-restricted or members-only videos will not play (no cookie support yet).
 
 ## Build from source
+
+Requires the .NET 10 SDK.
 
 ```bash
 dotnet publish Jellyfin.Plugin.YouTubeSync/Jellyfin.Plugin.YouTubeSync.csproj \

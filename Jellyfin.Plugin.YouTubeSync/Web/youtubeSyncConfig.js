@@ -200,14 +200,12 @@ export default function (view) {
         const description = view.querySelector('#editSourceDescription').value.trim();
 
         // If the user left the name blank, fetch it from YouTube before saving.
+        // ApiClient.getJSON sends the standard "Authorization: MediaBrowser ..." header and
+        // rejects on non-2xx responses. Jellyfin 12 disables the legacy X-Emby-Token header
+        // by default, so raw fetch() calls with that header are rejected with 401.
         if (!name) {
             Dashboard.showLoadingMsg();
-            fetch(ApiClient.getUrl('/YouTubeSync/source-info') + '?url=' + encodeURIComponent(id), {
-                headers: { 'X-Emby-Token': ApiClient.accessToken() }
-            }).then(function (resp) {
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                return resp.json();
-            }).then(function (info) {
+            ApiClient.getJSON(ApiClient.getUrl('YouTubeSync/source-info', { url: id })).then(function (info) {
                 Dashboard.hideLoadingMsg();
                 if (info.Type) {
                     view.querySelector('#editSourceType').value = info.Type;

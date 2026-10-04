@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.YouTubeSync.Configuration;
 using Jellyfin.Plugin.YouTubeSync.Metadata;
 using Jellyfin.Plugin.YouTubeSync.Services;
+using MediaBrowser.Common.Net;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.YouTubeSync.Sync;
@@ -27,13 +29,23 @@ public class SyncService
 
     private readonly YtDlpService _ytDlpService;
     private readonly SyncPlaylistFeedExpander _playlistFeedExpander;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<SyncService> _logger;
 
     /// <summary>Initializes a new instance of the <see cref="SyncService"/> class.</summary>
-    public SyncService(YtDlpService ytDlpService, SyncPlaylistFeedExpander playlistFeedExpander, ILogger<SyncService> logger)
+    /// <param name="ytDlpService">The yt-dlp wrapper.</param>
+    /// <param name="playlistFeedExpander">Expands channel playlist feeds into seasons.</param>
+    /// <param name="httpClientFactory">Jellyfin's HTTP client factory, used for artwork downloads.</param>
+    /// <param name="logger">Logger.</param>
+    public SyncService(
+        YtDlpService ytDlpService,
+        SyncPlaylistFeedExpander playlistFeedExpander,
+        IHttpClientFactory httpClientFactory,
+        ILogger<SyncService> logger)
     {
         _ytDlpService = ytDlpService;
         _playlistFeedExpander = playlistFeedExpander;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
 
@@ -368,8 +380,17 @@ public class SyncService
             : SyncNfoBuilder.BuildEpisodeNfo(video, sourceName, seasonNumber, episodeNumber, thumbFileName);
         await WriteTextFileIfChangedAsync(nfoPath, nfo, cancellationToken).ConfigureAwait(false);
 
-        await SyncArtworkHelper.DownloadArtworkAsync(_logger, video.ThumbnailUrl, videoDir, new[] { "folder", "poster" }, cancellationToken)
-            .ConfigureAwait(false);
+        await DownloadArtworkAsync(video.ThumbnailUrl, videoDir, ["folder", "poster"], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Downloads one artwork URL into <paramref name="directory"/> using Jellyfin's default named HTTP client,
+    /// which carries the server's user agent and connection handling.
+    /// </summary>
+    private Task DownloadArtworkAsync(string imageUrl, string directory, IReadOnlyList<string> baseNames, CancellationToken cancellationToken)
+    {
+        var httpClient = _httpClientFactory.CreateClient(NamedClient.Default);
+        return SyncArtworkHelper.DownloadArtworkAsync(httpClient, _logger, imageUrl, directory, baseNames, cancellationToken);
     }
 
     private async Task WriteSourceMetadataAsync(
@@ -410,7 +431,7 @@ public class SyncService
 
         foreach (var artworkDownload in artworkDownloads)
         {
-            await SyncArtworkHelper.DownloadArtworkAsync(_logger, artworkDownload.Key, dir, artworkDownload.Value, cancellationToken).ConfigureAwait(false);
+            await DownloadArtworkAsync(artworkDownload.Key, dir, artworkDownload.Value, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -446,8 +467,7 @@ public class SyncService
 
             foreach (var artworkDownload in seasonArtworkDownloads)
             {
-                await SyncArtworkHelper.DownloadArtworkAsync(_logger, artworkDownload.Key, seasonDir, artworkDownload.Value, cancellationToken)
-                    .ConfigureAwait(false);
+                await DownloadArtworkAsync(artworkDownload.Key, seasonDir, artworkDownload.Value, cancellationToken).ConfigureAwait(false);
             }
 
             var seasonNfoPath = Path.Combine(seasonDir, "season.nfo");

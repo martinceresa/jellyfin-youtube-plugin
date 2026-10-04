@@ -48,11 +48,11 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.ASSEMBLY_VERSION }}
 
-      # ── 4. Setup .NET 8 ────────────────────────────────────────────────────
+      # ── 4. Setup .NET 10 (required by Jellyfin 12) ─────────────────────────
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: '10.0.x'
 
       # ── 5. Build & publish (Release) ───────────────────────────────────────
       - name: Publish plugin
@@ -117,7 +117,7 @@ jobs:
           new_entry = {
               "version":    os.environ["VERSION"],
               "changelog":  f"Release {os.environ['VERSION']}",
-              "targetAbi":  "10.11.6.0",
+              "targetAbi":  "12.1.0.0",
               "sourceUrl":  os.environ["DOWNLOAD_URL"],
               "checksum":   os.environ["CHECKSUM"],
               "timestamp":  os.environ["TIMESTAMP"]

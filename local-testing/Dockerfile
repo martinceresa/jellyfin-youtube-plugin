@@ -1,4 +1,4 @@
-FROM jellyfin/jellyfin:10.11.6
+FROM jellyfin/jellyfin:12.1
 
 USER root
 
